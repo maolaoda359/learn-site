@@ -1,0 +1,53 @@
+name: Build & Deploy Quartz (site-repo, v4 branch)
+
+on:
+  push:
+    branches: [ "v4" ]   # 只监听 v4
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout site repo (v4)
+        uses: actions/checkout@v4
+        with:
+          ref: v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Ensure npm >= 10.9.2
+        run: npm i -g npm@^10.9.2
+
+      - name: Install deps & build Quartz
+        run: |
+          npm ci || npm i
+          npx quartz build   # 输出在 ./public
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
